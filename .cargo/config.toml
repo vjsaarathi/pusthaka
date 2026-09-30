@@ -1,0 +1,8 @@
+# Target-specific configuration for the first concrete hardware target.
+# The host build remains the default so the simulator and reader core can be tested
+# without an embedded toolchain.
+
+[target.riscv32imc-unknown-none-elf]
+# Install espflash separately before using this runner.
+runner = "espflash flash --monitor"
+rustflags = ["-C", "force-frame-pointers"]

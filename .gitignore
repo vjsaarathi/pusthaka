@@ -1,0 +1,13 @@
+/target/
+*.bin
+*.elf
+*.hex
+*.uf2
+.DS_Store
+
+# Generated host artifacts
+/tools/simulator/output/
+
+# Local editor state
+.idea/
+.vscode/
