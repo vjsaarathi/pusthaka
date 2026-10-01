@@ -1,35 +1,58 @@
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
+use crate::hal::storage::{StorageBackend, StoragePath, ReadFile, WriteFile};
 
-use crate::reader::document::ReaderPosition;
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct BookmarkEntry {
-    pub xpath: String,
-    pub summary: String,
-    pub percentage: f32,
-    pub computed_spine_index: u16,
-    pub computed_chapter_page_count: u16,
-    pub computed_chapter_progress: f32,
-    pub visible_text_offset: Option<u32>,
-    pub position: Option<ReaderPosition>,
+    pub book_path: String,
+    pub paragraph_index: u32,
+    pub text_snippet: String,
+    pub timestamp: u64,
 }
 
-pub struct BookmarkStore;
-
-impl BookmarkStore {
-    /// TODO: derive a stable sanitized per-book filename and read/write bookmark JSON.
-    pub fn save(_book_path: &str, _bookmarks: &[BookmarkEntry]) -> crate::Result<()> { Ok(()) }
-    pub fn load(_book_path: &str) -> crate::Result<alloc::vec::Vec<BookmarkEntry>> { Ok(alloc::vec::Vec::new()) }
+#[derive(Clone, Debug, Eq, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct BookmarkStoreData {
+    pub bookmarks: Vec<BookmarkEntry>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl Default for BookmarkStoreData {
+    fn default() -> Self {
+        Self { bookmarks: Vec::new() }
+    }
+}
 
-    #[test]
-    fn test_bookmarks_save_load() {
-        assert!(BookmarkStore::save("test.epub", &[]).is_ok());
-        let bookmarks = BookmarkStore::load("test.epub").unwrap();
-        assert!(bookmarks.is_empty());
+pub struct BookmarkEngine<'a, S: StorageBackend> {
+    pub storage: &'a mut S,
+    pub path: &'static str,
+}
+
+impl<'a, S: StorageBackend> BookmarkEngine<'a, S> {
+    pub fn new(storage: &'a mut S, path: &'static str) -> Self {
+        Self { storage, path }
+    }
+
+    pub fn load(&mut self) -> Result<BookmarkStoreData, S::Error> {
+        let mut file = self.storage.open_read(StoragePath(self.path))?;
+        let size = file.size()? as usize;
+        let mut buf = alloc::vec![0; size];
+        file.read(&mut buf)?;
+        
+        let data: BookmarkStoreData = unsafe {
+            rkyv::from_bytes_unchecked(&buf).map_err(|_: rkyv::rancor::Error| panic!())?
+        };
+        Ok(data)
+    }
+
+    pub fn save(&mut self, data: &BookmarkStoreData) -> Result<(), S::Error> {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(data).unwrap();
+        let mut file = self.storage.open_write(StoragePath(self.path))?;
+        file.write(&bytes)?;
+        file.flush()?;
+        Ok(())
+    }
+    
+    pub fn add_bookmark(&mut self, entry: BookmarkEntry) -> Result<(), S::Error> {
+        let mut data = self.load().unwrap_or_default();
+        data.bookmarks.push(entry);
+        self.save(&data)
     }
 }

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "skill-finder": {
+      "version": "2.0.0",
+      "installedAt": "2026-09-30T15:27:36.773Z",
+      "platform": "opencode"
+    }
+  }
+}

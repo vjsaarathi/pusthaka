@@ -1,28 +1,33 @@
-use crate::hal::power::PowerController;
+use crate::hal::power::PowerBackend;
+use crate::hal::battery::{BatteryBackend, BatteryMetrics};
 
-pub struct PowerService<P: PowerController> { pub controller: P, pub auto_sleep_enabled: bool }
-
-impl<P: PowerController> PowerService<P> {
-    /// TODO: enforce the configured inactivity timeout and the activity-level prevent-sleep contract.
-    pub fn tick(&mut self) -> crate::Result<()> { Ok(()) }
+pub struct PowerManager<'a, P: PowerBackend, B: BatteryBackend> {
+    pub power_hal: &'a mut P,
+    pub battery_hal: &'a mut B,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct MockPower;
-    impl crate::hal::power::PowerController for MockPower {
-        type Error = ();
-        fn hold_power_rails(&mut self) -> Result<(), Self::Error> { Ok(()) }
-        fn enter_sleep(&mut self) -> Result<(), Self::Error> { Ok(()) }
-        fn reset(&mut self) -> Result<(), Self::Error> { Ok(()) }
-        fn prevent_sleep(&mut self, _prevent: bool) -> Result<(), Self::Error> { Ok(()) }
+impl<'a, P: PowerBackend, B: BatteryBackend> PowerManager<'a, P, B> {
+    pub fn new(power_hal: &'a mut P, battery_hal: &'a mut B) -> Self {
+        Self { power_hal, battery_hal }
     }
 
-    #[test]
-    fn test_power_tick() {
-        let mut fsm = PowerService { controller: MockPower, auto_sleep_enabled: true };
-        assert!(fsm.tick().is_ok());
+    pub fn enter_sleep(&mut self) -> Result<(), P::Error> {
+        self.power_hal.sleep()
+    }
+
+    pub fn shutdown(&mut self) -> Result<(), P::Error> {
+        self.power_hal.shutdown()
+    }
+
+    pub fn get_battery_percentage(&mut self) -> Result<u8, B::Error> {
+        self.battery_hal.level()
+    }
+
+    pub fn is_charging(&self) -> Result<bool, B::Error> {
+        self.battery_hal.is_charging()
+    }
+
+    pub fn get_metrics(&self) -> Result<BatteryMetrics, B::Error> {
+        self.battery_hal.metrics()
     }
 }

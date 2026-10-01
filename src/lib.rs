@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
@@ -9,7 +9,6 @@ pub mod hal;
 pub mod kernel;
 pub mod reader;
 pub mod services;
-pub mod ui;
 
 mod error;
 pub use error::{CoreError, Result};

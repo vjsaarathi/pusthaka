@@ -1,4 +1,4 @@
-use super::{battery::BatteryGauge, clock::Clock, display::EinkDisplay, firmware::FirmwareUpdater, frontlight::Frontlight, input::InputSource, network::NetworkInterface, power::PowerController, storage::StorageBackend, touch::TouchSource};
+use super::{battery::BatteryBackend, clock::RtcBackend, display::EinkDisplay, firmware::FirmwareUpdater, frontlight::Frontlight, input::InputSource, network::NetworkBackend, power::PowerBackend, storage::StorageBackend, touch::TouchSource};
 use super::capabilities::DeviceDescriptor;
 
 /// The dependency-injection boundary for a physical reader.
@@ -9,11 +9,11 @@ pub trait Device {
     type Display: EinkDisplay;
     type Storage: StorageBackend;
     type Input: InputSource;
-    type Power: PowerController;
-    type Clock: Clock;
-    type Battery: BatteryGauge;
+    type Power: PowerBackend;
+    type Clock: RtcBackend;
+    type Battery: BatteryBackend;
     type Frontlight: Frontlight;
-    type Network: NetworkInterface;
+    type Network: NetworkBackend;
     type Touch: TouchSource;
     type Firmware: FirmwareUpdater;
 

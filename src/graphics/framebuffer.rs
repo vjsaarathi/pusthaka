@@ -71,7 +71,7 @@ impl<'a> FrameBuffer<'a> {
         }
     }
 
-    pub fn set_pixel_value(&mut self, point: Point, value: u8) {
+    pub fn blend_pixel(&mut self, point: Point, coverage: u8, target: Pixel) {
         if point.x < 0 || point.y < 0 || point.x >= self.size.width as i32 || point.y >= self.size.height as i32 {
             return;
         }
@@ -79,21 +79,19 @@ impl<'a> FrameBuffer<'a> {
             PixelFormat::Mono1MsbFirst => {
                 let index = (point.y as usize * self.size.width as usize + point.x as usize) / 8;
                 let bit = 7 - ((point.x as usize) % 8);
-                if value > 128 {
-                    self.bytes[index] &= !(1 << bit); // Black
-                } else {
-                    self.bytes[index] |= 1 << bit; // White
+                if coverage > 128 {
+                    match target {
+                        Pixel::Black => self.bytes[index] &= !(1 << bit),
+                        Pixel::White => self.bytes[index] |= 1 << bit,
+                    }
                 }
             }
             PixelFormat::Grayscale8 => {
                 let index = point.y as usize * self.size.width as usize + point.x as usize;
-                // Mix with existing pixel (simple alpha blending where value is coverage of black)
-                // Assuming 0 is white and 255 is black.
-                // Output = (value * 255 + (255 - value) * existing) / 255
-                // Actually, just taking max for simplicity or proper lerp
                 let existing = self.bytes[index] as u16;
-                let alpha = value as u16;
-                let new_val = (alpha * 255 + (255 - alpha) * existing) / 255;
+                let alpha = coverage as u16;
+                let target_val = match target { Pixel::Black => 255, Pixel::White => 0 };
+                let new_val = (alpha * target_val + (255 - alpha) * existing) / 255;
                 self.bytes[index] = new_val as u8;
             }
         }

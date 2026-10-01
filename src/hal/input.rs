@@ -49,8 +49,10 @@ pub enum InputEvent {
     ButtonReleased(LogicalButton),
     Tap { x: i16, y: i16 },
     LongPress { x: i16, y: i16 },
-    Drag { x: i16, y: i16 },
+    Drag { x: i16, y: i16, dx: i16, dy: i16 },
     EdgeSwipe { edge: Edge, inward_dx: i16, inward_dy: i16 },
+    Character(char),
+    Scroll { x: i16, y: i16, dx: i16, dy: i16 },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

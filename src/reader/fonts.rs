@@ -42,6 +42,12 @@ pub struct FontSystem<'a> {
     pub fonts: BTreeMap<u16, rusttype::Font<'a>>,
 }
 
+impl<'a> Default for FontSystem<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> FontSystem<'a> {
     pub fn new() -> Self {
         Self { fonts: BTreeMap::new() }
@@ -95,8 +101,8 @@ impl<'a> FontProvider for FontSystem<'a> {
         let mut buf = Vec::new();
         buf.extend_from_slice(&(width as u32).to_le_bytes());
         buf.extend_from_slice(&(height as u32).to_le_bytes());
-        buf.extend_from_slice(&(bb.min.x as i32).to_le_bytes());
-        buf.extend_from_slice(&(bb.min.y as i32).to_le_bytes());
+        buf.extend_from_slice(&bb.min.x.to_le_bytes());
+        buf.extend_from_slice(&bb.min.y.to_le_bytes());
         buf.extend_from_slice(&(pg.unpositioned().h_metrics().advance_width as u32).to_le_bytes());
         
         buf.resize(20 + width * height, 0);

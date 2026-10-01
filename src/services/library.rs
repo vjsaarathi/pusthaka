@@ -1,82 +1,52 @@
 use alloc::{string::String, vec::Vec};
+use crate::hal::storage::{StorageBackend, StoragePath, ReadFile, WriteFile};
 
-use crate::reader::document::{BookMetadata, DocumentFormat};
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct LibraryEntry {
     pub path: String,
     pub title: String,
     pub author: String,
     pub size_bytes: u64,
-    pub format: DocumentFormat,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum LibrarySort { Title, Author, RecentlyRead }
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RecentBook {
-    pub path: String,
-    pub title: String,
-    pub author: String,
-    pub cover_path: String,
+#[derive(Clone, Debug, Eq, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct LibraryIndex {
+    pub entries: Vec<LibraryEntry>,
 }
-
-pub struct LibraryIndex { pub entries: Vec<LibraryEntry> }
 
 impl Default for LibraryIndex {
     fn default() -> Self {
-        Self::new()
+        Self { entries: Vec::new() }
     }
 }
 
-impl LibraryIndex {
-    pub fn new() -> Self { Self { entries: Vec::new() } }
+pub struct LibraryEngine<'a, S: StorageBackend> {
+    pub storage: &'a mut S,
+    pub cache_path: &'static str,
+}
 
-    pub fn rebuild(&mut self) -> crate::Result<()> { Ok(()) }
-
-    pub fn sort(&mut self, _by: LibrarySort) {}
-
-    pub fn search(&self, _query: &str) -> Vec<&LibraryEntry> { Vec::new() }
-
-    pub fn metadata(entry: &LibraryEntry) -> BookMetadata {
-        BookMetadata {
-            title: entry.title.clone(),
-            authors: entry.author.clone(),
-            language: String::from("en"),
-        }
+impl<'a, S: StorageBackend> LibraryEngine<'a, S> {
+    pub fn new(storage: &'a mut S, cache_path: &'static str) -> Self {
+        Self { storage, cache_path }
     }
-}
 
-pub struct RecentBooksStore;
-
-impl RecentBooksStore {
-    pub const MAX_ENTRIES: usize = 10;
-    pub fn load(&mut self) -> crate::Result<Vec<RecentBook>> { Ok(Vec::new()) }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_library() {
-        let mut index = LibraryIndex::new();
-        assert!(index.rebuild().is_ok());
-        index.sort(LibrarySort::Title);
-        assert!(index.search("a").is_empty());
-
-        let entry = LibraryEntry {
-            path: String::from(""),
-            title: String::from("T"),
-            author: String::from("A"),
-            size_bytes: 0,
-            format: crate::reader::document::DocumentFormat::Epub,
+    pub fn load_index(&mut self) -> Result<LibraryIndex, S::Error> {
+        let mut file = self.storage.open_read(StoragePath(self.cache_path))?;
+        let size = file.size()? as usize;
+        let mut buf = alloc::vec![0; size];
+        file.read(&mut buf)?;
+        
+        let index: LibraryIndex = unsafe {
+            rkyv::from_bytes_unchecked(&buf).map_err(|_: rkyv::rancor::Error| panic!())?
         };
-        let meta = LibraryIndex::metadata(&entry);
-        assert_eq!(meta.title, "T");
+        Ok(index)
+    }
 
-        let mut recent = RecentBooksStore;
-        assert!(recent.load().unwrap().is_empty());
+    pub fn save_index(&mut self, index: &LibraryIndex) -> Result<(), S::Error> {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(index).unwrap();
+        let mut file = self.storage.open_write(StoragePath(self.cache_path))?;
+        file.write(&bytes)?;
+        file.flush()?;
+        Ok(())
     }
 }

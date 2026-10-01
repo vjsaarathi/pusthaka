@@ -1,17 +1,35 @@
-use crate::services::networking::{HttpRequest, HttpResponseHead};
+use alloc::{string::String, vec::Vec};
 
-/// Consumer for a streaming HTTP response body.
-pub trait HttpResponseSink {
-    fn write(&mut self, bytes: &[u8]) -> crate::Result<usize>;
-}
+/// Types of network security
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SecurityType { Open, Wep, Wpa, Wpa2, Wpa3 }
 
-/// Optional network transport boundary. The reader core only uses higher-level services.
-pub trait NetworkInterface {
-    type Error;
-    fn is_available(&self) -> bool;
-    fn poll(&mut self) -> Result<(), Self::Error>;
+/// Network connection status
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ConnectionState { Disconnected, Connecting, Connected, AuthFailed, NetworkNotFound }
 
-    /// Bodies are streamed into a sink; the transport must never require the whole response
-    /// to coexist in RAM. Redirects/auth/TLS policy belongs above or alongside this boundary.
-    fn execute_http<S: HttpResponseSink>(&mut self, request: &HttpRequest<'_>, sink: &mut S) -> Result<HttpResponseHead, Self::Error>;
+/// Trait representing an abstract Network interface (e.g., WiFi chip, Ethernet)
+pub trait NetworkBackend {
+    type Error: core::fmt::Debug;
+
+    /// Initialize the network hardware
+    fn initialize(&mut self) -> Result<(), Self::Error>;
+    
+    /// Scan for available networks (Access Points)
+    fn scan(&mut self) -> Result<Vec<(String, SecurityType, i8)>, Self::Error>;
+    
+    /// Connect to a specific access point
+    fn connect(&mut self, ssid: &str, password: Option<&str>) -> Result<(), Self::Error>;
+    
+    /// Disconnect from the current network
+    fn disconnect(&mut self) -> Result<(), Self::Error>;
+    
+    /// Get the current connection state
+    fn state(&self) -> Result<ConnectionState, Self::Error>;
+    
+    /// Execute an HTTP GET request (useful for OTA and OPDS)
+    fn http_get(&mut self, url: &str, response_buffer: &mut [u8]) -> Result<usize, Self::Error>;
+    
+    /// Execute an HTTP POST request
+    fn http_post(&mut self, url: &str, payload: &[u8], response_buffer: &mut [u8]) -> Result<usize, Self::Error>;
 }

@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::graphics::geometry::Rect;
 use crate::graphics::text::{FontId, FixedPoint4, TextAlignment, TextDirection};
-use crate::reader::epub::blocks::Block;
+use crate::reader::format::SemanticBlock;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LayoutContext {
@@ -25,7 +25,7 @@ pub struct PositionedWord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LayoutLine { pub words: Vec<PositionedWord>, pub baseline: i32, pub height: u16 }
+pub struct LayoutLine { pub text: alloc::string::String, pub words: Vec<PositionedWord>, pub baseline: i32, pub height: u16 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PageLayout { pub lines: Vec<LayoutLine>, pub height: u16 }
@@ -34,7 +34,7 @@ pub struct PageLayout { pub lines: Vec<LayoutLine>, pub height: u16 }
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    pub fn layout(&self, _blocks: &[Block], _ctx: LayoutContext) -> crate::Result<PageLayout> {
+    pub fn layout(&self, _blocks: &[SemanticBlock], _ctx: LayoutContext) -> crate::Result<PageLayout> {
         Ok(PageLayout { lines: Vec::new(), height: 0 })
     }
 }

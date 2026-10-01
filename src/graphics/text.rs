@@ -27,6 +27,7 @@ pub struct TextStyle {
     pub direction: TextDirection,
     pub alignment: TextAlignment,
     pub point_size: u16,
+    pub inverted: bool,
 }
 
 /// 12.4 fixed-point value used for deterministic text advances.

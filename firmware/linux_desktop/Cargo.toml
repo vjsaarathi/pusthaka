@@ -1,0 +1,13 @@
+[package]
+name = "linux_desktop"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+reader-os = { path = "../..", features = ["ingestion"] }
+iced = { version = "0.12.1", features = ["tokio", "image", "canvas", "svg"] }
+tokio = { version = "1.37", features = ["full"] }
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = { version = "0.6.6", default-features = false }
+rfd = "0.17.2"
+rkyv = { version = "0.8", default-features = false, features = ["alloc"] }

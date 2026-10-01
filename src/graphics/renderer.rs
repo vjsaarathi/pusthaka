@@ -35,6 +35,14 @@ impl<'a> Renderer<'a> {
     pub fn set_clip(&mut self, rect: Rect) { self.clip = Some(rect); }
     pub fn clear_clip(&mut self) { self.clip = None; }
 
+    pub fn is_clipped(&self, p: Point) -> bool {
+        if let Some(rect) = &self.clip {
+            p.x < rect.x || p.y < rect.y || p.x >= rect.x + rect.width as i32 || p.y >= rect.y + rect.height as i32
+        } else {
+            false
+        }
+    }
+
     /// TODO: implement integer Bresenham drawing.
     pub fn draw_line(&mut self, a: Point, b: Point) {
         let mut x0 = a.x;
@@ -49,8 +57,10 @@ impl<'a> Renderer<'a> {
         let mut err = dx + dy;
 
         loop {
-            let p = self.rotate_point(Point { x: x0, y: y0 });
-            self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
+            if !self.is_clipped(Point { x: x0, y: y0 }) {
+                let p = self.rotate_point(Point { x: x0, y: y0 });
+                self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
+            }
             if x0 == x1 && y0 == y1 { break; }
             let e2 = 2 * err;
             if e2 >= dy {
@@ -65,6 +75,17 @@ impl<'a> Renderer<'a> {
     }
 
     /// TODO: implement scanline polygon fill with bounded temporary storage.
+    pub fn fill_rect(&mut self, rect: Rect, color: crate::graphics::color::Pixel) {
+        for y in rect.y..(rect.y + rect.height as i32) {
+            for x in rect.x..(rect.x + rect.width as i32) {
+                if !self.is_clipped(Point { x, y }) {
+                    let p = self.rotate_point(Point { x, y });
+                    self.frame.set_pixel(p, color);
+                }
+            }
+        }
+    }
+
     pub fn fill_polygon(&mut self, points: &[Point]) {
         if points.len() < 3 { return; }
         let mut min_x = points[0].x;
@@ -92,7 +113,7 @@ impl<'a> Renderer<'a> {
                     }
                     j = i;
                 }
-                if inside {
+                if inside && !self.is_clipped(Point { x, y }) {
                     let p = self.rotate_point(Point { x, y });
                     self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
                 }
@@ -110,8 +131,10 @@ impl<'a> Renderer<'a> {
         let mut draw_horizontal_line = |x_start: i32, x_end: i32, y_pos: i32| {
             let (start, end) = if x_start < x_end { (x_start, x_end) } else { (x_end, x_start) };
             for xi in start..=end {
-                let p = self.rotate_point(Point { x: xi, y: y_pos });
-                self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
+                if !self.is_clipped(Point { x: xi, y: y_pos }) {
+                    let p = self.rotate_point(Point { x: xi, y: y_pos });
+                    self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
+                }
             }
         };
 
@@ -136,9 +159,9 @@ impl<'a> Renderer<'a> {
         let scale_f32 = style.point_size as f32;
 
         for c in text.chars() {
-            if let Ok((glyph_id, _metrics)) = provider.glyph_for_codepoint(font, c as u32) {
-                if let Ok(bitmap_data) = provider.rasterize_glyph(font, glyph_id, scale_f32) {
-                    if bitmap_data.len() >= 20 {
+            if let Ok((glyph_id, _metrics)) = provider.glyph_for_codepoint(font, c as u32)
+                && let Ok(bitmap_data) = provider.rasterize_glyph(font, glyph_id, scale_f32)
+                    && bitmap_data.len() >= 20 {
                         let width = u32::from_le_bytes(bitmap_data[0..4].try_into().unwrap()) as i32;
                         let height = u32::from_le_bytes(bitmap_data[4..8].try_into().unwrap()) as i32;
                         let bearing_x = i32::from_le_bytes(bitmap_data[8..12].try_into().unwrap());
@@ -153,13 +176,10 @@ impl<'a> Renderer<'a> {
                                 if val > 0 {
                                     let px = current_x + bearing_x + x;
                                     let py = origin.y + bearing_y + y;
-                                    let p = self.rotate_point(Point { x: px, y: py });
-                                    if self.frame.format() == crate::graphics::framebuffer::PixelFormat::Grayscale8 {
-                                        self.frame.set_pixel_value(p, val);
-                                    } else {
-                                        if val > 128 {
-                                            self.frame.set_pixel(p, crate::graphics::color::Pixel::Black);
-                                        }
+                                    if !self.is_clipped(Point { x: px, y: py }) {
+                                        let p = self.rotate_point(Point { x: px, y: py });
+                                        let target_color = if style.inverted { crate::graphics::color::Pixel::White } else { crate::graphics::color::Pixel::Black };
+                                        self.frame.blend_pixel(p, val, target_color);
                                     }
                                 }
                             }
@@ -167,8 +187,6 @@ impl<'a> Renderer<'a> {
                         
                         current_x += adv_width;
                     }
-                }
-            }
         }
     }
 
